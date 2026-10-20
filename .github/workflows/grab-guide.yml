@@ -15,7 +15,10 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
-      - run: npm run grab -- --channels=epg-channels.xml --output=guide.xml --maxConnections=8 --timeout=15000
+      - name: grab guide
+        env:
+          NODE_OPTIONS: --max-old-space-size=7168
+        run: npm run grab -- --channels=epg-channels.xml --output=guide.xml --maxConnections=8 --timeout=15000
       - name: check output
         run: |
           ls -la guide.xml
