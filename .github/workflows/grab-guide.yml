@@ -1,0 +1,42 @@
+name: grab-guide
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '10 19 * * *'  # daily 03:10 Beijing
+permissions:
+  contents: write
+jobs:
+  grab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run grab --- --channels=epg-channels.xml --output=guide.xml --maxConnections=8 --timeout=15000
+      - name: check output
+        run: |
+          ls -la guide.xml
+          test -s guide.xml
+          grep -c "<programme" guide.xml
+          gzip -9 -k guide.xml
+          ls -la guide.xml.gz
+      - name: publish to guide branch (Pages)
+        run: |
+          git config user.name "jarvis-epg"
+          git config user.email "jarvis-epg@users.noreply.github.com"
+          git checkout -B guide
+          git rm -rf --ignore-unmatch -q . || true
+          touch .nojekyll
+          git add .nojekyll
+          git add -f guide.xml guide.xml.gz
+          git commit -q -m "guide $(date -u +%FT%TZ)" || echo "no changes"
+          git push -f origin guide
+      - name: summary
+        run: |
+          echo "## EPG guide published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- channels file: epg-channels.xml (571 channels)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- output: guide.xml / guide.xml.gz on \`guide\` branch" >> "$GITHUB_STEP_SUMMARY"
+          echo "- size: $(du -h guide.xml guide.xml.gz | tr '\t\n' '  ')" >> "$GITHUB_STEP_SUMMARY"
